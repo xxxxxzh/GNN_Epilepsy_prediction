@@ -3,6 +3,7 @@ import traceback
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_info
 import models.gcn
+import models.TGCN
 import torch
 from utils.losses import binary_cross_entropy
 from utils.metric import accuracy
@@ -14,11 +15,9 @@ import utils.data
 # import utils.email
 # import utils.logging
 
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter('runs/GCN')
 
-# DATA_PATHS = {
-#     "shenzhen": {"feat": "data/sz_speed.csv", "adj": "data/sz_adj.csv"},
-#     "losloop": {"feat": "data/los_speed.csv", "adj": "data/los_adj.csv"},
-# }
 
 DATA_PATHS = {
     "train": "data/train",
@@ -44,29 +43,14 @@ def get_model(args,adj):
     if args.model_name == "GCN":
         model = models.gcn.GCNModel(num_layer=args.num_layer, adj=adj, input_dim=args.seq_len,
                                     hidden_dim=args.hidden_dim, output_dim=args.output_dim)
+    if args.model_name == "TGCN":
+        model = models.TGCN.TGCNModel(num_layer=args.num_layer, adj=adj, input_dim=args.seq_len,
+                                    hidden_dim=args.hidden_dim, output_dim=args.output_dim, pooling_first=args.pooling_first)
     # if args.model_name == "GRU":
     #     model = models.GRU(input_dim=adj.shape[0], hidden_dim=args.hidden_dim)
     # if args.model_name == "TGCN":
     #     model = models.TGCN(adj=adj, hidden_dim=args.hidden_dim)
     return model
-
-# def get_model(args, dm):
-#     model = None
-#     if args.model_name == "GCN":
-#         model = models.GCN(adj=dm.adj, input_dim=args.seq_len, output_dim=args.hidden_dim)
-#     if args.model_name == "GRU":
-#         model = models.GRU(input_dim=dm.adj.shape[0], hidden_dim=args.hidden_dim)
-#     if args.model_name == "TGCN":
-#         model = models.TGCN(adj=dm.adj, hidden_dim=args.hidden_dim)
-#     return model
-
-
-# def get_task(args, model, dm):
-#     task = getattr(tasks, args.settings.capitalize() + "ForecastTask")(
-#         model=model, feat_max_val=dm.feat_max_val, **vars(args)
-#     )
-#     return task
-
 
 # def get_callbacks(args):
 #     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="train_loss")
@@ -87,6 +71,17 @@ def train(
         weight_decay,
         batch_size
 ):
+    '''
+
+    :param net:
+    :param train_dataset:
+    :param test_dataset:
+    :param num_epoch:
+    :param learning_rate:
+    :param weight_decay:
+    :param batch_size:
+    :return: train_loss, test_acc
+    '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
 
@@ -100,6 +95,8 @@ def train(
 
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size, shuffle = True)
     optimizer = torch.optim.Adam(params=net.parameters(), lr = learning_rate, weight_decay = weight_decay)
+    loss = list()
+    acc = list()
     for epoch in range(num_epoch):
         for x,y in train_dataloader:
             x = x.to(device)
@@ -109,11 +106,23 @@ def train(
             l.backward()
             optimizer.step()
         # print(net(train_feature).cpu().device)
-        train_loss = binary_cross_entropy(net(train_feature),train_label)
+        train_loss = binary_cross_entropy(net(train_feature),train_label).item()
         test_acc = accuracy(net(test_feature),test_label)
+        loss.append(train_loss)
+        acc.append(test_acc)
         print('epoch = %.0f, train_loss = %.6f, test_acc = %.4f' % (epoch,train_loss,test_acc))
+    return loss, acc
 
-
+def train_log(loss,acc):
+    '''
+    使用 tensorborad 监控训练
+    '''
+    writer = SummaryWriter('runs/GCN')
+    for num_epoch, l in enumerate(loss):
+        writer.add_scalar('loss', l, num_epoch)
+    for num_epoch, ac in enumerate(acc):
+        writer.add_scalar('test_ac', ac, num_epoch)
+    writer.close()
 
 def main(args):
     # rank_zero_info(vars(args))
@@ -121,7 +130,8 @@ def main(args):
     adj = get_adj()
     train_dataset, test_dataset = get_feature_dataset(args)
     model = get_model(args,adj)
-    train(model,train_dataset,test_dataset,args.num_epoch,args.learning_rate,args.weight_decay,args.batch_size)
+    loss, acc = train(model,train_dataset,test_dataset,args.num_epoch,args.learning_rate,args.weight_decay,args.batch_size)
+    train_log(loss,acc)
     # return results
 
 
@@ -146,6 +156,8 @@ if __name__ == "__main__":
         choices=("supervised",),
         default="supervised",
     )
+    parser.add_argument("--pooling_first", type=bool, default=True)
+
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--seq_len", type=int, default=12)
     parser.add_argument("--normalize", type=bool, default=True)

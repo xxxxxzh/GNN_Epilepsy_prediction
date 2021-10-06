@@ -54,7 +54,7 @@ class global_mean_pooling(nn.Module):
         #(batch_size,num_node,feature)
 
         # return(batch_size,feature)
-        return input.sum(dim = 1)
+        return input.sum(dim = 1) / input.shape[1]
 
 class GCNModel(nn.Module):
     def __init__(self,num_layer,adj,input_dim,hidden_dim,output_dim,**kwargs):
