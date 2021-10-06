@@ -120,8 +120,12 @@ class TGCNModel(nn.Module):
     def forward(self,inputs):
         # inputs: (batch_size, num_nodes, feature)
         batch_size, num_nodes, seq_len = inputs.shape
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        if (self.pooling_first == False):
+            hidden_state = torch.zeros(batch_size, num_nodes, self.hidden_dim).to(device)
+        else:
+            hidden_state = torch.zeros(batch_size, self.hidden_dim).to(device)
 
-        hidden_state = torch.zeros(batch_size, num_nodes, self.hidden_dim).cuda()
         # print(hidden_state.device)
         for i in range(seq_len):
             hidden_state = self.Ceil(inputs[:,:,i].reshape(batch_size,num_nodes,1),hidden_state)

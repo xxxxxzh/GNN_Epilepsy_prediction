@@ -16,7 +16,7 @@ import utils.data
 # import utils.logging
 
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter('runs/GCN')
+# writer = SummaryWriter('runs/GCN')
 
 
 DATA_PATHS = {
@@ -113,11 +113,11 @@ def train(
         print('epoch = %.0f, train_loss = %.6f, test_acc = %.4f' % (epoch,train_loss,test_acc))
     return loss, acc
 
-def train_log(loss,acc):
+def train_log(loss,acc,log_dir):
     '''
     使用 tensorborad 监控训练
     '''
-    writer = SummaryWriter('runs/GCN')
+    writer = SummaryWriter(log_dir)
     for num_epoch, l in enumerate(loss):
         writer.add_scalar('loss', l, num_epoch)
     for num_epoch, ac in enumerate(acc):
@@ -131,13 +131,14 @@ def main(args):
     train_dataset, test_dataset = get_feature_dataset(args)
     model = get_model(args,adj)
     loss, acc = train(model,train_dataset,test_dataset,args.num_epoch,args.learning_rate,args.weight_decay,args.batch_size)
-    train_log(loss,acc)
+    print(args.log_dir)
+    train_log(loss,acc,args.log_dir)
     # return results
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parser)
+    # parser = pl.Trainer.add_argparse_args(parser)
 
     parser.add_argument(
         "--data", type=str, help="The name of the dataset", choices=("shenzhen", "losloop"), default="losloop"
@@ -156,6 +157,13 @@ if __name__ == "__main__":
         choices=("supervised",),
         default="supervised",
     )
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        help="the path of log train_loss，test_acc",
+        default='runs/GCN',
+    )
+
     parser.add_argument("--pooling_first", type=bool, default=True)
 
     parser.add_argument("--batch_size", type=int, default=32)
