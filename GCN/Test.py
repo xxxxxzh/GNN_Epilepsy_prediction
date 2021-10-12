@@ -38,14 +38,17 @@ def cal(path):
 
 def write_data(path,num_row):
     f = open(path,'w',newline='')
-    x = torch.randn(num_row,22).numpy()
+    x = torch.randn(num_row,23).numpy()
     write = csv.writer(f)
     write.writerows(x)
     f.close()
-write_data('data/train/ictal/1.csv',3000)
-write_data('data/train/preictal/1.csv',3000)
-write_data('data/test/ictal/2.csv',500)
-write_data('data/test/preictal/2.csv',500)
+
+
+# write_data('data/train/ictal/1.csv',3000)
+# write_data('data/train/preictal/1.csv',3000)
+# write_data('data/test/ictal/2.csv',500)
+# write_data('data/test/preictal/2.csv',500)
+
 
 # cal(train)
 # print('***')

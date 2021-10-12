@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 DATA_PATHS = {
     "train": "data/train",
     "test": "data/test",
-    "adj": "data/plv_adj.csv"
+    "adj": "data/plv_adj_2.csv"
 }
 
 def get_adj():
